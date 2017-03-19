@@ -1,33 +1,14 @@
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# Json File
+*.json
 
-# Precompiled Headers
-*.gch
-*.pch
+# Jupyter Notebook
+.ipynb_checkpoints
+.ipynb_checkpoints/
+*.ipynb
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+#PYC
+*.pyc
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
+#Pycharm
+.idea
+.idea/
