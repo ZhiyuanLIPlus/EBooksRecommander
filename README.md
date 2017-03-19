@@ -1,7 +1,7 @@
 # EBooksRecommander
 An online Fiction Recommandation Project
 
-A pratical project is to build a accurate recommandation algo to recommand online fictions by using the collaborative filtering algo.
+The objective is to build a accurate recommandation algo to recommand online fictions by using the collaborative filtering algo.
 * eBksSpider:
   * Scrapy code to scrapy data from [Yousuu](www.yousuu.com/booklist)
 * eBksRecommder:
