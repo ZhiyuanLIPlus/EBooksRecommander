@@ -2,6 +2,10 @@
 from __future__ import division
 from math import sqrt
 from dataloader import loadJsonObjectToDict
+import pickle
+import os
+
+SHAREDITEM_AJUSTNUM = 50
 
 def sim_euclid(prefs, personA, personB):
     si = {} #Dict for shared item
@@ -11,7 +15,20 @@ def sim_euclid(prefs, personA, personB):
     #Zero shared item -> not similar at all
     if len(si) == 0: return 0
     sum_of_squares = sum([pow(prefs[personA][item] - prefs[personB][item], 2) for item in si])
-    return 1/(1+sqrt(sum_of_squares))
+    r = 1/(1+sqrt(sum_of_squares))
+    return r
+
+def sim_euclid_ajust(prefs, personA, personB):
+    si = {} #Dict for shared item
+    for item in prefs[personA]:
+        if item in prefs[personB]:
+            si[item] = 1
+    #Zero shared item -> not similar at all
+    if len(si) == 0: return 0
+    sum_of_squares = sum([pow(prefs[personA][item] - prefs[personB][item], 2) for item in si])
+    r = 1/(1+sqrt(sum_of_squares))
+    r *= len(si)/SHAREDITEM_AJUSTNUM
+    return r
 
 def sim_pearson(prefs, personA, personB):
     si = {} #Dict for shared item
@@ -23,8 +40,7 @@ def sim_pearson(prefs, personA, personB):
     #sum
     sumA = sum([prefs[personA][item] for item in si])
     sumB = sum([prefs[personB][item] for item in si])
-    #for item in si:
-    #    print item.encode("UTF-8") + "|" + str(prefs[personA][item]) + "|" + str(prefs[personB][item])
+
     #sum sqrt
     sumASqrt = sum([pow(prefs[personA][item], 2) for item in si])
     sumBSqrt = sum([pow(prefs[personB][item], 2) for item in si])
@@ -36,10 +52,33 @@ def sim_pearson(prefs, personA, personB):
     if den == 0: return 0
     r = num/den
     return r
+
+def sim_pearson_ajust(prefs, personA, personB):
+    si = {} #Dict for shared item
+    for item in prefs[personA]:
+        if item in prefs[personB]:
+            si[item] = 1
+    n = len(si)
+    if n == 0: return 0
+    #sum
+    sumA = sum([prefs[personA][item] for item in si])
+    sumB = sum([prefs[personB][item] for item in si])
+
+    #sum sqrt
+    sumASqrt = sum([pow(prefs[personA][item], 2) for item in si])
+    sumBSqrt = sum([pow(prefs[personB][item], 2) for item in si])
+    #power of sum
+    pSum = sum(prefs[personA][it] * prefs[personB][it] for it in si)
+    #pearson Formula 4
+    num = pSum - (sumA*sumB/n)
+    den = sqrt((sumASqrt - pow(sumA, 2)/n) * (sumBSqrt - pow(sumB, 2)/n))
+    if den == 0: return 0
+    r = (num/den) * (n/SHAREDITEM_AJUSTNUM)
+    return r
 #To Think over
 def topMatches(prefs, person, n=5, similarity = sim_pearson):
     #scores = [(sim_pearson(prefs, person, other) * sim_euclid(prefs, person, other), other) for other in prefs if other != person]
-    scores = [(sim_pearson(prefs, person, other), other) for other in prefs if other != person]
+    scores = [(similarity(prefs, person, other), other) for other in prefs if other != person]
     scores.sort()
     scores.reverse()
     return scores[0:n]
@@ -71,15 +110,22 @@ def transformPrefs(prefs):
             result[item][person] = prefs[person][item]
     return result
 
-def calculationSimilarItem(prefs, n=10):
+def calculationSimilarItem(prefs, dumpedfilePath, n=10):
     result = {}
+    if os.path.exists(dumpedfilePath):
+        print('find preprocessed data, loading directly...')
+        with open(dumpedfilePath, 'rb') as f:
+            result = pickle.load(f)
+        return result
     itemPrefs = transformPrefs(prefs)
     c = 0
     for item in itemPrefs:
         c+=1
-        if c%100 == 0: print "%d / %d" % (c, len(itemPrefs))
-        scores = topMatches(itemPrefs, item, n=n, similarity=sim_euclid)
+        if c%100 == 0: print('%d/%d'%(c,len(itemPrefs)))
+        scores = topMatches(itemPrefs, item, n=n, similarity=sim_euclid_ajust)
         result[item] = scores
+    with open(dumpedfilePath, 'wb') as f:
+        pickle.dump(result,f)
     return result
 
 def getRecommandedItems(prefs, itemMatch, user):
@@ -99,20 +145,34 @@ def getRecommandedItems(prefs, itemMatch, user):
     rankings.sort()
     rankings.reverse()
     return rankings
-#Test
-loadedData = loadJsonObjectToDict("test.json")
-'''
-print sim_euclid(loadedData, u'己未癸酉', u'赤戟')
-print sim_pearson(loadedData, u'己未癸酉', u'阿克夏记录')
-li = getRecommanditions(loadedData, u'己未癸酉')
-for tl in li:
-    print str(tl[0]) + ":" + tl[1]
-books = transformPrefs(loadedData)
-li = topMatches(books, u'间客')
-for tl in li:
-    print str(tl[0]) + ":" + tl[1]
-'''
-li = calculationSimilarItem(loadedData)
-re = getRecommandedItems(loadedData, li,  u'赤戟')
-for tl in re:
-    print str(tl[0]) + ":" + tl[1]
+
+def calculateAverageSharedItemForPrefs(prefs):
+    length_prefs = len(prefs) #Total Number
+    sumOneUser = 0
+    sumAll = 0
+    i = 0
+    for user in prefs:
+        i += 1
+        for other in prefs:
+            if user == other: continue
+            si = {}
+            for item in prefs[user]:
+                if item in prefs[other]:
+                    si[item] = 1
+            sumOneUser += len(si)
+        sumOneUser /= length_prefs
+        sumAll += sumOneUser
+        if i%100 == 0: print('%d/%d Users Done. SumAll: %d ' %(i,length_prefs,sumAll))
+    return sumAll/length_prefs
+
+#LocalTest
+def main():
+    loadedData = loadJsonObjectToDict("./data/test.json")
+    #n = calculateAverageSharedItemForPrefs(loadedData)
+    li = calculationSimilarItem(loadedData, "./data/CalculatedItemSim" +"Distance" + ".pkl")
+    re = getRecommandedItems(loadedData, li,  u'赤戟')
+    for tl in re:
+        print (str(tl[0]) + ":" + tl[1])
+
+if __name__ == '__main__':
+    main()

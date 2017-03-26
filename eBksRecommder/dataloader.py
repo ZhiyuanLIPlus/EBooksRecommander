@@ -2,7 +2,7 @@
 import json
 import time
 def loadJsonObjectToDict(filename):
-    f = open(filename,'r')
+    f = open(filename,'r',encoding="utf-8")
     totalLine, errorLine = 0, 0
     critics = {}
     start_time = time.time()
@@ -18,19 +18,22 @@ def loadJsonObjectToDict(filename):
                 critics[readDict['publisher']] = nestedDict
             else:
                 critics[readDict['publisher']].update(nestedDict)
-        except ValueError as e:
+        except:
             errorLine += 1
-            print e.message + " @Line " + str(totalLine)
+            print("Error @Line " + str(totalLine))
 
-    print str(totalLine - errorLine) + "/" + str(totalLine) + " has been loaded into critics dict"
-    print "Num of elements in dict:" + str(len(critics))
-    print "Load time:" + str(time.time() - start_time)
+    print (str(totalLine - errorLine) + "/" + str(totalLine) + " has been loaded into critics dict")
+    print ("Num of elements in dict:" + str(len(critics)))
+    print ("Load time:" + str(time.time() - start_time))
     return critics
 
 #Test
-def __init__():
-    testDict = loadJsonObjectToDict("test.json")
-    for key, value in testDict[u'最爱小花花'].iteritems():
-        print key + ":" + str(value)
+def main():
+    testDict = loadJsonObjectToDict("./data/test.json")
+    for key, value in testDict[u'最爱小花花'].items():
+        print (key + ":" + str(value))
+
+if __name__ == '__main__':
+    main()
 
 
