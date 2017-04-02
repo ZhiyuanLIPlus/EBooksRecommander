@@ -8,10 +8,10 @@
   * dataloader.py 清洗抓取数据，将抓取数据以{用户：{书名：评分}}的字典形式存储
   * func.py 算法实现部分
     *  读取UserPrefs.txt中用户喜好书单以及书评
-	*  使用不同度量方法(**欧氏距离**，**皮尔逊相似性**和**Tanimoto系数**)为每本小说计算前10最相似小说
+	*  使用不同度量方法(**欧氏距离**，**皮尔逊相似性**和**Tanimoto系数**)为每本小说计算相似小说
 	*  实施协同过滤算法
 	
-# EBooksRecommander  
+
 An online Fiction Recommandation Project
 
 The objective is to build an accurate recommandation algo to recommand online fictions by using the collaborative filtering algo.

@@ -5,7 +5,7 @@ from dataloader import loadJsonObjectToDict
 import pickle
 import os
 
-PENALTY_RATIO = 8
+PENALTY_RATIO = 6
 
 def sim_tanimoto(prefs, personA, personB):
     keys_a = set(prefs[personA])
@@ -49,7 +49,7 @@ def sim_pearson(prefs, personA, personB):
     return r
 
 def sim_combine(prefs, personA, personB):
-    return sim_euclid(prefs, personA, personB) + sim_tanimoto(prefs, personA, personB) * 3
+    return sim_euclid(prefs, personA, personB) + sim_tanimoto(prefs, personA, personB) * PENALTY_RATIO
 
 def topMatches(prefs, person, n=5, similarity = sim_pearson):
     #scores = [(sim_pearson(prefs, person, other) * sim_euclid(prefs, person, other), other) for other in prefs if other != person]
