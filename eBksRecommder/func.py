@@ -4,8 +4,9 @@ from math import sqrt
 from dataloader import loadJsonObjectToDict
 import pickle
 import os
+import json
 
-PENALTY_RATIO = 6
+PENALTY_RATIO = 9
 
 def sim_tanimoto(prefs, personA, personB):
     keys_a = set(prefs[personA])
@@ -49,7 +50,7 @@ def sim_pearson(prefs, personA, personB):
     return r
 
 def sim_combine(prefs, personA, personB):
-    return sim_euclid(prefs, personA, personB) + sim_tanimoto(prefs, personA, personB) * PENALTY_RATIO
+    return (sim_euclid(prefs, personA, personB) + sim_tanimoto(prefs, personA, personB) * PENALTY_RATIO)/(PENALTY_RATIO + 1)
 
 def topMatches(prefs, person, n=5, similarity = sim_pearson):
     #scores = [(sim_pearson(prefs, person, other) * sim_euclid(prefs, person, other), other) for other in prefs if other != person]
@@ -58,7 +59,7 @@ def topMatches(prefs, person, n=5, similarity = sim_pearson):
     scores.reverse()
     return scores[0:n]
 
-def getRecommanditions(prefs, person,similarity = sim_pearson):
+def getRecommandations(prefs, person,similarity = sim_pearson):
     totals = {}
     simSums = {}
     for other in prefs:
@@ -131,7 +132,7 @@ def readUserPrefs(userRatingPath):
     return userRating
 
 #TestCode
-def main():
+def ItemBasedReco():
     #Load scrapy data into {User -> Book -> Note} Dict
     loadedData = loadJsonObjectToDict("./data/test.json")
 
@@ -145,7 +146,7 @@ def main():
     #Get the Recommandations
     re = getRecommandedItems(loadedData, li,  userRating)
     #Print recommandation
-    print("------------------ Sim Euclid --------------------")
+    print("------------------ Item Based: Sim Euclid --------------------")
     for tl in re[0:15]:
         print (str(tl[0]) + ":" + tl[1])
 
@@ -155,7 +156,7 @@ def main():
     #Get the Recommandations
     re = getRecommandedItems(loadedData, li,  userRating)
     #Print recommandation
-    print("------------------ Sim Tanimoto --------------------")
+    print("------------------ Item Based: Sim Tanimoto --------------------")
     for tl in re[0:15]:
         print (str(tl[0]) + ":" + tl[1])
 
@@ -165,7 +166,7 @@ def main():
     #Get the Recommandations
     re = getRecommandedItems(loadedData, li,  userRating)
     #Print recommandation
-    print("------------------ Sim Pearson --------------------")
+    print("------------------ Item Based: Sim Pearson --------------------")
     for tl in re[0:15]:
         print (str(tl[0]) + ":" + tl[1])
 
@@ -175,9 +176,39 @@ def main():
     #Get the Recommandations
     re = getRecommandedItems(loadedData, li,  userRating)
     #Print recommandation
-    print("------------------ Sim Tanimoto * 3 + Sim Euclid --------------------")
+    print("------------------ Item Based: Sim Tanimoto * 10 + Sim Euclid --------------------")
     for tl in re[0:15]:
         print (str(tl[0]) + ":" + tl[1])
 
+def UserBasedReco():
+    #Load scrapy data into {User -> Book -> Note} Dict
+    loadedData = loadJsonObjectToDict("./data/test.json")
+    # Read User prefs
+    userRatingPath = "./UserPrefs.txt"
+    userRating = readUserPrefs(userRatingPath)
+    loadedData['Me'] = userRating
+
+    re = getRecommandations(loadedData,'Me',sim_euclid)
+    print("------------------ User Based: Sim Euclid --------------------")
+    for tl in re[0:15]:
+        print (str(tl[0]) + ":" + tl[1])
+
+    re = getRecommandations(loadedData,'Me',sim_pearson)
+    print("------------------ User Based: Sim Pearson --------------------")
+    for tl in re[0:15]:
+        print (str(tl[0]) + ":" + tl[1])
+
+    re = getRecommandations(loadedData,'Me',sim_tanimoto)
+    print("------------------ User Based: Sim Tanimoto --------------------")
+    for tl in re[0:15]:
+        print (str(tl[0]) + ":" + tl[1])
+
+    re = getRecommandations(loadedData,'Me',sim_combine)
+    print("------------------ User Based: Sim Tanimoto * 10 + Sim Euclid --------------------")
+    for tl in re[0:15]:
+        print (str(tl[0]) + ":" + tl[1])
+
+
 if __name__ == '__main__':
-    main()
+    UserBasedReco()
+    ItemBasedReco()
