@@ -5,7 +5,14 @@ from dataloader import loadJsonObjectToDict
 import pickle
 import os
 
-SHAREDITEM_AJUSTNUM = 50
+PENALTY_RATIO = 8
+
+def sim_tanimoto(prefs, personA, personB):
+    keys_a = set(prefs[personA])
+    keys_b = set(prefs[personB])
+    intersection = keys_a & keys_b
+    unionDict = dict(prefs[personA], **prefs[personB])
+    return len(intersection)/len(unionDict)
 
 def sim_euclid(prefs, personA, personB):
     si = {} #Dict for shared item
@@ -16,18 +23,6 @@ def sim_euclid(prefs, personA, personB):
     if len(si) == 0: return 0
     sum_of_squares = sum([pow(prefs[personA][item] - prefs[personB][item], 2) for item in si])
     r = 1/(1+sqrt(sum_of_squares))
-    return r
-
-def sim_euclid_ajust(prefs, personA, personB):
-    si = {} #Dict for shared item
-    for item in prefs[personA]:
-        if item in prefs[personB]:
-            si[item] = 1
-    #Zero shared item -> not similar at all
-    if len(si) == 0: return 0
-    sum_of_squares = sum([pow(prefs[personA][item] - prefs[personB][item], 2) for item in si])
-    r = 1/(1+sqrt(sum_of_squares))
-    r *= len(si)/SHAREDITEM_AJUSTNUM
     return r
 
 def sim_pearson(prefs, personA, personB):
@@ -53,29 +48,9 @@ def sim_pearson(prefs, personA, personB):
     r = num/den
     return r
 
-def sim_pearson_ajust(prefs, personA, personB):
-    si = {} #Dict for shared item
-    for item in prefs[personA]:
-        if item in prefs[personB]:
-            si[item] = 1
-    n = len(si)
-    if n == 0: return 0
-    #sum
-    sumA = sum([prefs[personA][item] for item in si])
-    sumB = sum([prefs[personB][item] for item in si])
+def sim_combine(prefs, personA, personB):
+    return sim_euclid(prefs, personA, personB) + sim_tanimoto(prefs, personA, personB) * 3
 
-    #sum sqrt
-    sumASqrt = sum([pow(prefs[personA][item], 2) for item in si])
-    sumBSqrt = sum([pow(prefs[personB][item], 2) for item in si])
-    #power of sum
-    pSum = sum(prefs[personA][it] * prefs[personB][it] for it in si)
-    #pearson Formula 4
-    num = pSum - (sumA*sumB/n)
-    den = sqrt((sumASqrt - pow(sumA, 2)/n) * (sumBSqrt - pow(sumB, 2)/n))
-    if den == 0: return 0
-    r = (num/den) * (n/SHAREDITEM_AJUSTNUM)
-    return r
-#To Think over
 def topMatches(prefs, person, n=5, similarity = sim_pearson):
     #scores = [(sim_pearson(prefs, person, other) * sim_euclid(prefs, person, other), other) for other in prefs if other != person]
     scores = [(similarity(prefs, person, other), other) for other in prefs if other != person]
@@ -110,7 +85,7 @@ def transformPrefs(prefs):
             result[item][person] = prefs[person][item]
     return result
 
-def calculationSimilarItem(prefs, dumpedfilePath, n=10):
+def calculationSimilarItem(prefs, simFunction, dumpedfilePath, n=10):
     result = {}
     if os.path.exists(dumpedfilePath):
         print('find preprocessed data, loading directly...')
@@ -122,14 +97,14 @@ def calculationSimilarItem(prefs, dumpedfilePath, n=10):
     for item in itemPrefs:
         c+=1
         if c%100 == 0: print('%d/%d'%(c,len(itemPrefs)))
-        scores = topMatches(itemPrefs, item, n=n, similarity=sim_euclid_ajust)
+        scores = topMatches(itemPrefs, item, n=n, similarity=simFunction)
         result[item] = scores
     with open(dumpedfilePath, 'wb') as f:
         pickle.dump(result,f)
     return result
 
-def getRecommandedItems(prefs, itemMatch, user):
-    userRating = prefs[user]
+def getRecommandedItems(prefs, itemMatch, userRating):
+    userRating = userRating
     scores = {}
     totalSim = {}
 
@@ -146,32 +121,62 @@ def getRecommandedItems(prefs, itemMatch, user):
     rankings.reverse()
     return rankings
 
-def calculateAverageSharedItemForPrefs(prefs):
-    length_prefs = len(prefs) #Total Number
-    sumOneUser = 0
-    sumAll = 0
-    i = 0
-    for user in prefs:
-        i += 1
-        for other in prefs:
-            if user == other: continue
-            si = {}
-            for item in prefs[user]:
-                if item in prefs[other]:
-                    si[item] = 1
-            sumOneUser += len(si)
-        sumOneUser /= length_prefs
-        sumAll += sumOneUser
-        if i%100 == 0: print('%d/%d Users Done. SumAll: %d ' %(i,length_prefs,sumAll))
-    return sumAll/length_prefs
+def readUserPrefs(userRatingPath):
+    userRating = {}
+    if os.path.exists(userRatingPath):
+        f = open(userRatingPath, 'r')
+        for line in f:
+            txtSeg = line.split()
+            userRating[txtSeg[0]] = float(txtSeg[1])
+    return userRating
 
-#LocalTest
+#TestCode
 def main():
+    #Load scrapy data into {User -> Book -> Note} Dict
     loadedData = loadJsonObjectToDict("./data/test.json")
-    #n = calculateAverageSharedItemForPrefs(loadedData)
-    li = calculationSimilarItem(loadedData, "./data/CalculatedItemSim" +"Distance" + ".pkl")
-    re = getRecommandedItems(loadedData, li,  u'赤戟')
-    for tl in re:
+
+    # Read User prefs
+    userRatingPath = "./UserPrefs.txt"
+    userRating = readUserPrefs(userRatingPath)
+
+    #Using Euclid for Calculating Similarity
+    #Calculate Top10 Matche book for each book with similarity point
+    li = calculationSimilarItem(loadedData, sim_euclid, "./data/CalculatedItemSim" +"Euclid" + ".pkl")
+    #Get the Recommandations
+    re = getRecommandedItems(loadedData, li,  userRating)
+    #Print recommandation
+    print("------------------ Sim Euclid --------------------")
+    for tl in re[0:15]:
+        print (str(tl[0]) + ":" + tl[1])
+
+    #Using Euclid for Calculating Similarity
+    #Calculate Top10 Matche book for each book with similarity point
+    li = calculationSimilarItem(loadedData, sim_tanimoto, "./data/CalculatedItemSim" +"Tanimoto" + ".pkl")
+    #Get the Recommandations
+    re = getRecommandedItems(loadedData, li,  userRating)
+    #Print recommandation
+    print("------------------ Sim Tanimoto --------------------")
+    for tl in re[0:15]:
+        print (str(tl[0]) + ":" + tl[1])
+
+    #Using Euclid for Calculating Similarity
+    #Calculate Top10 Matche book for each book with similarity point
+    li = calculationSimilarItem(loadedData, sim_pearson,"./data/CalculatedItemSim" +"Pearson" + ".pkl")
+    #Get the Recommandations
+    re = getRecommandedItems(loadedData, li,  userRating)
+    #Print recommandation
+    print("------------------ Sim Pearson --------------------")
+    for tl in re[0:15]:
+        print (str(tl[0]) + ":" + tl[1])
+
+    #Using Euclid for Calculating Similarity
+    #Calculate Top10 Matche book for each book with similarity point
+    li = calculationSimilarItem(loadedData,sim_combine, "./data/CalculatedItemSim" +"Combine" + ".pkl")
+    #Get the Recommandations
+    re = getRecommandedItems(loadedData, li,  userRating)
+    #Print recommandation
+    print("------------------ Sim Tanimoto * 3 + Sim Euclid --------------------")
+    for tl in re[0:15]:
         print (str(tl[0]) + ":" + tl[1])
 
 if __name__ == '__main__':
