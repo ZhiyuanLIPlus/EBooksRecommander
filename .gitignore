@@ -15,3 +15,8 @@
 #Pycharm
 .idea
 .idea/
+
+#Ref files
+dmoz.py
+StackOverflowSpider.py
+yousuu.py
